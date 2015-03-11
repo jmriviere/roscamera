@@ -94,13 +94,18 @@ public class Camera2PreviewView extends ViewGroup {
         Preconditions.checkNotNull(camera);
         this.camera = camera;
         imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
+
             @Override
             public void onImageAvailable(ImageReader imageReader) {
-                Image im = imageReader.acquireNextImage();
+//                showToast("Image available");
+                Image im = imageReader.acquireLatestImage();
                 ByteBuffer buffer = im.getPlanes()[0].getBuffer();
-                if (rawImageListener != null) {
-                    rawImageListener.onNewRawImage(buffer.array(), previewSize);
+                byte[] bytes = new byte[buffer.remaining()];
+                buffer.get(bytes);
+                if (null != rawImageListener) {
+                    rawImageListener.onNewRawImage(bytes, previewSize);
                 }
+                im.close();
             }
         }, null);
 
@@ -122,6 +127,7 @@ public class Camera2PreviewView extends ViewGroup {
                         e.printStackTrace();
                     }
                     previewRequestBuilder.addTarget(previewSurface.getHolder().getSurface());
+                    previewRequestBuilder.addTarget(imageReader.getSurface());
 
                     CameraCaptureSession.CaptureCallback captureCallback =
                             new CameraCaptureSession.CaptureCallback() {};
@@ -162,10 +168,11 @@ public class Camera2PreviewView extends ViewGroup {
 
     private void init(Context context) {
         this.context = context;
+        previewSize = new Size(1920,1080);
         previewSurface = new SurfaceView(context);
         previewSurface.getHolder().setFixedSize(1920,1080);
         addView(previewSurface);
-        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, /* max images on queue*/2);
+        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, /* max images on queue*/4);
     }
 
     public void setRawImageListener(RawImageListener rawImageListener) {

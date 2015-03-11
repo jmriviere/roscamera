@@ -15,6 +15,8 @@ import org.ros.namespace.NameResolver;
 import org.ros.node.ConnectedNode;
 import org.ros.node.topic.Publisher;
 
+import java.io.IOException;
+
 import sensor_msgs.CompressedImage;
 
 /**
@@ -49,7 +51,7 @@ public class CompressedImagePublisher implements RawImageListener {
         if (data != rawImageBuffer || !size.equals(rawImageSize)) {
             rawImageBuffer = data;
             rawImageSize = size;
-            yuvImage = new YuvImage(rawImageBuffer, ImageFormat.NV21, size.getWidth(), size.getHeight(), null);
+            //yuvImage = new YuvImage(rawImageBuffer, ImageFormat.NV21, size.getWidth(), size.getHeight(), null);
             rect = new Rect(0, 0, size.getWidth(), size.getHeight());
         }
 
@@ -61,7 +63,12 @@ public class CompressedImagePublisher implements RawImageListener {
         image.getHeader().setStamp(currentTime);
         image.getHeader().setFrameId(frameId);
 
-        Preconditions.checkState(yuvImage.compressToJpeg(rect, 100, stream));
+//        Preconditions.checkState(yuvImage.compressToJpeg(rect, 100, stream));
+        try {
+            stream.write(data);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         image.setData(stream.buffer().copy());
         stream.buffer().clear();
 
