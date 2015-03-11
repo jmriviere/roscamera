@@ -144,7 +144,7 @@ public class Camera2PreviewView extends ViewGroup {
 
                 @Override
                 public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
-                    showToast("Failed: " + previewSurface.getHolder().getSurface());
+                    showToast("Failed: " + previewSurface.getHolder().getSurface() + " " + imageReader.getSurface());
                 }
             }, null);
         } catch (CameraAccessException e) {
@@ -163,8 +163,9 @@ public class Camera2PreviewView extends ViewGroup {
     private void init(Context context) {
         this.context = context;
         previewSurface = new SurfaceView(context);
+        previewSurface.getHolder().setFixedSize(1920,1080);
         addView(previewSurface);
-        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, /* max images on queue*/3);
+        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, /* max images on queue*/2);
     }
 
     public void setRawImageListener(RawImageListener rawImageListener) {
