@@ -1,19 +1,30 @@
 package org.ros.android.view.camera2;
 
+import android.app.Activity;
 import android.content.Context;
+import android.graphics.ImageFormat;
+import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CaptureRequest;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Handler;
+import android.os.Message;
+import android.util.AttributeSet;
 import android.util.Size;
 import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import com.google.common.base.Preconditions;
 
+import org.ros.exception.RosRuntimeException;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -24,12 +35,33 @@ public class Camera2PreviewView extends ViewGroup {
 
     private SurfaceView previewSurface;
     private ImageReader imageReader;
+    private CameraCaptureSession captureSession;
     private CameraDevice camera;
     private Size previewSize;
     private RawImageListener rawImageListener;
+    private Context context;
+
+    private Handler mMessageHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            if (null != context) {
+                Toast.makeText(context, (String) msg.obj, Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
 
     public Camera2PreviewView(Context context) {
         super(context);
+        init(context);
+    }
+
+    public Camera2PreviewView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        init(context);
+    }
+
+    public Camera2PreviewView(Context context, AttributeSet attrs, int defStyle) {
+        super(context, attrs, defStyle);
         init(context);
     }
 
@@ -58,7 +90,7 @@ public class Camera2PreviewView extends ViewGroup {
         }
     }
 
-    public void setCamera(CameraDevice camera) {
+    public void setCamera(final CameraDevice camera) {
         Preconditions.checkNotNull(camera);
         this.camera = camera;
         imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
@@ -73,27 +105,55 @@ public class Camera2PreviewView extends ViewGroup {
         }, null);
 
         try {
-            camera.createCaptureSession(Arrays.asList(previewSurface.getHolder().getSurface()), new CameraCaptureSession.StateCallback() {
+            camera.createCaptureSession(Arrays.asList(previewSurface.getHolder().getSurface(), imageReader.getSurface()), new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(CameraCaptureSession cameraCaptureSession) {
+                    if (null == camera) {
+                        return;
+                    }
 
+                    captureSession = cameraCaptureSession;
+
+                    CaptureRequest.Builder previewRequestBuilder = null;
+                    try {
+                        previewRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                    }
+                    catch (CameraAccessException e) {
+                        e.printStackTrace();
+                    }
+                    previewRequestBuilder.addTarget(previewSurface.getHolder().getSurface());
+
+                    CameraCaptureSession.CaptureCallback captureCallback =
+                            new CameraCaptureSession.CaptureCallback() {};
+
+                    try {
+                        // Auto focus should be continuous for camera preview.
+                        previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                        // Flash is automatically enabled when necessary.
+                        previewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+                        // Finally, we start displaying the camera preview.
+                        CaptureRequest previewRequest = previewRequestBuilder.build();
+                        captureSession.setRepeatingRequest(previewRequest,
+                                captureCallback, null);
+                    } catch (CameraAccessException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 @Override
                 public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
-
+                    showToast("Failed: " + previewSurface.getHolder().getSurface());
                 }
             }, null);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
-//        setupCameraParameters();
-//        setupBufferingPreviewCallback();
-//        camera.;
     }
 
     public void releaseCamera() {
-        if (camera == null) {
+        if (null == camera) {
             return;
         }
         camera.close();
@@ -101,8 +161,22 @@ public class Camera2PreviewView extends ViewGroup {
     }
 
     private void init(Context context) {
+        this.context = context;
         previewSurface = new SurfaceView(context);
         addView(previewSurface);
+        imageReader = ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, /* max images on queue*/3);
+    }
+
+    public void setRawImageListener(RawImageListener rawImageListener) {
+        this.rawImageListener = rawImageListener;
+    }
+
+    private void showToast(String text) {
+// We show a Toast by sending request message to mMessageHandler. This makes sure that the
+// Toast is shown on the UI thread.
+        Message message = Message.obtain();
+        message.obj = text;
+        mMessageHandler.sendMessage(message);
     }
 
 }
