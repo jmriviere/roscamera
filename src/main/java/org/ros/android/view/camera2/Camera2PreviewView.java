@@ -1,10 +1,13 @@
 package org.ros.android.view.camera2;
 
 import android.content.Context;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraDevice;
 import android.media.Image;
 import android.media.ImageReader;
 import android.util.Size;
+import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +15,7 @@ import android.view.ViewGroup;
 import com.google.common.base.Preconditions;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * Created by jmr12 on 11/03/15.
@@ -67,6 +71,22 @@ public class Camera2PreviewView extends ViewGroup {
                 }
             }
         }, null);
+
+        try {
+            camera.createCaptureSession(Arrays.asList(previewSurface.getHolder().getSurface()), new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(CameraCaptureSession cameraCaptureSession) {
+
+                }
+
+                @Override
+                public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
+
+                }
+            }, null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
 //        setupCameraParameters();
 //        setupBufferingPreviewCallback();
 //        camera.;
